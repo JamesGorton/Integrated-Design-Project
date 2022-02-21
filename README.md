@@ -1,6 +1,6 @@
 # Integrated-Design-Project
 
-*This is a project for 2nd-year engineers in University of Cambridge.*
+*This is a project for 2nd-year engineers in the University of Cambridge.*
 
 Scenario:
 Many robot applications require the ability of a robot to carry out a task to a high degree of precision. In this task
