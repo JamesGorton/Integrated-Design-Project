@@ -51,7 +51,7 @@ Class MovementControl: public: LFDetection
       void STOP (void);
 }
 
-void MovementControl::Turn()
+void MovementControl::TURN()
 {
   if (Turn==0){
       pass;
@@ -86,7 +86,7 @@ void MovementControl::MOVE()
   while(1){
     LFDataRead();
     TurnDetection();
-    Turn();
+    TURN();
   }
 }
 
