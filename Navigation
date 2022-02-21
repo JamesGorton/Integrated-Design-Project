@@ -33,7 +33,7 @@ void LFDetection::TurnDetection()
     } 
 }
 
-void LFDetection::IntersectionDetection(void);
+void LFDetection::IntersectionDetection();
 {
   pass;
 }
