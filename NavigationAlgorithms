@@ -61,14 +61,18 @@ void MovementControl::TURN()
       if (Turn==1){
           analogWrite(motL,0);
           analogWrite(motR,60);
+          while(LLF_data==0){
+            LFDataRead();
+          }
       } 
       else if (Turn==2){
           analogWrite(motL,60);
           analogWrite(motR,0);
+          while(RLF_data==0){
+            LFDataRead();
+          }
       } 
-      while(LLF_data==0){
-        LFDataRead();
-      }
+
       delay(turn_delay);
   
       analogWrite(motL,255);
