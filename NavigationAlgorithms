@@ -12,9 +12,29 @@ Class LFDetection
       
       int Turn = 0;
       
+      int P, I, D;
+      int kp, ki, kd;
+      int ref; // reference position light intensity.
+      
+      int pre_I, pre_P;
+      int prev_time;
+
       void LFDataRead(void);
       void TurnDetection(void);
       void IntersectionDetection(void);
+      void PID(void);
+}
+
+void PID(ref, real, kp, ki, kd)
+{
+    P = ref - real;
+    I = pre_I + P * iter_time;
+    D = (pre_P - P) / iter_time;
+    current_time = time();
+    prev_time = current_time;
+    pre_I = I;
+    pre_P = P;
+    return P * kp + I * ki + D * kd;
 }
 
 void LFDetection::LFDataRead()
@@ -45,6 +65,8 @@ Class MovementControl: public: LFDetection
       int motR;
      
       int turn_delay;
+      
+      int ref_speed; // forward speed.
       
       void TURN (void);
       void MOVE (void);
@@ -84,8 +106,27 @@ void MovementControl::TURN()
 
 void MovementControl::MOVE()
 {
-  analogWrite(motL,255);
-  analogWrite(motR,255);
+
+  PID = PID();
+  
+  int speedL = ref_speed + PID;
+  int speedR = ref_speed - PID;
+  
+  if (speedL > maxspeed) {
+    speedL = maxspeed;
+  }
+  if (speedR > maxspeed) {
+    speedR = maxspeed;
+  }
+  if (speedL < 0) {
+    speedL = 0;
+  }
+  if (speedR < 0) {
+    speedR = 0;
+  }
+  
+  analogWrite(motL,speedL);
+  analogWrite(motR,speedR);
   
   while(1){
     LFDataRead();
