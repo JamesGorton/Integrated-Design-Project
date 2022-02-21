@@ -26,7 +26,7 @@ Class LFDetection
       void PID(void);
 }
 
-void PID(ref, real, kp, ki, kd)
+void LFDetection::PID(ref, real, kp, ki, kd)
 {
     P = ref - real;
     I = pre_I + P * iter_time;
