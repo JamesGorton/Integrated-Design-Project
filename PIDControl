@@ -1,0 +1,64 @@
+Class PIDerror
+{
+  public:
+    const int ref = 512;
+    int kp = 1;
+    int ki = 1;
+    int kd = 0;
+    int iter_time = 500; // 0.5s
+    int current_time;
+    int 
+    
+    int PIDerror(int ref, int real, int kp, int ki, int kd );
+}
+
+void PID_control() {
+  uint16_t position = qtr.readLineBlack(sensorValues);
+  int error = 3500 - position;
+
+  P = error;
+  I = I + error;
+  D = error - lastError;
+  lastError = error;
+  int motorspeed = P*Kp + I*Ki + D*Kd;
+  
+  int motorspeeda = basespeeda + motorspeed;
+  int motorspeedb = basespeedb - motorspeed;
+  
+  if (motorspeeda > maxspeeda) {
+    motorspeeda = maxspeeda;
+  }
+  if (motorspeedb > maxspeedb) {
+    motorspeedb = maxspeedb;
+  }
+  if (motorspeeda < 0) {
+    motorspeeda = 0;
+  }
+  if (motorspeedb < 0) {
+    motorspeedb = 0;
+  } 
+  //Serial.print(motorspeeda);Serial.print(" ");Serial.println(motorspeedb);
+  forward_brake(motorspeeda, motorspeedb);
+}
+
+float PIDerror::PIDerror(ref, real, kp, ki, kd)
+{
+    int P = ref - real;
+    float I += previous_integral_error + error * iteration_time;
+    float D = (error - previous_error) / iteration_time;
+    
+    float PIDerror = kp * P + ki * I + kd * D;
+    return PIDerror;
+}
+
+void MovementControl::MOVE()
+{
+  analogWrite(motL,reference_speed + PIDerror);
+  analogWrite(motR,reference_speed - PIDerror);
+  
+  while(1){
+    LFDataRead();
+    TurnDetection();
+    TURN();
+  }
+}
