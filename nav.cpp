@@ -1,4 +1,3 @@
-//Analogue Control
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
 #include "utility/Adafruit_MS_PWMServoDriver.h"
@@ -8,7 +7,7 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 Adafruit_DCMotor *LeftMotor = AFMS.getMotor(2);
 Adafruit_DCMotor *RightMotor = AFMS.getMotor(1);
 
-Class LFDetection
+class LFDetection
 {
   public:
       int L2LF_anode; // L2-L1-R1-R2
@@ -30,7 +29,7 @@ Class LFDetection
       int Turn = 0;
       
       int delay_time = 200;
-      float PID; // PID control feedback
+      float PID_; // PID control feedback
       float P, I, D;
       float kp = 1;
       float ki = 0;
@@ -48,9 +47,9 @@ Class LFDetection
       // float pre_P;
       unsigned long current_time; 
       unsigned long prev_time;
-}
+};
 
-void LFDetection::PID(ref, L1LF_data, R1LF_data, kp, ki, kd)
+void LFDetection::PID()
 { 
 
     current_time = millis();
@@ -59,7 +58,7 @@ void LFDetection::PID(ref, L1LF_data, R1LF_data, kp, ki, kd)
     Serial.println("real_delay = " + String(current_time - prev_time));
     P = ref - L1LF_data;
     I = pre_I + P * (current_time - prev_time);
-    PID = P*kp + I*ki;
+    PID_ = P*kp + I*ki;
     pre_I = I;
     prev_time = current_time;
   
@@ -75,22 +74,22 @@ void LFDetection::PID(ref, L1LF_data, R1LF_data, kp, ki, kd)
 
 void LFDetection::LFDataRead()
 {
-    LLF_data = analogueRead(LLF_collector);
-    RLF_data = analogueRead(RLF_collector);
+    L1LF_data = analogRead(L1LF_collector);
+    R1LF_data = analogRead(R1LF_collector);
 }
 
 // 90 degree turn detection
 void LFDetection::TurnDetection()
 {
-    pass;
+    return;
 }
 
-void LFDetection::IntersectionDetection();
+void LFDetection::IntersectionDetection()
 {
-    pass;
+    return;
 }
 
-Class MovementControl: public: LFDetection
+class MovementControl: public LFDetection
 {
   public:
             
@@ -106,12 +105,12 @@ Class MovementControl: public: LFDetection
   private:
       int speedL; 
       int speedR;
-}
+};
 
 void MovementControl::TURN() // 90 degree turn
 {
   if (Turn==0){
-      pass;
+      return;
   }
   
   else {
@@ -122,7 +121,7 @@ void MovementControl::TURN() // 90 degree turn
           RightMotor->run(FORWARD);
           RightMotor->setSpeed(turnspeed);
         
-          while(LLF_data==0){
+          while(L1LF_data==0){
             LFDataRead();
           }
       } 
@@ -131,14 +130,14 @@ void MovementControl::TURN() // 90 degree turn
           LeftMotor->setSpeed(turnspeed);
           RightMotor->run(BACKWARD);
           RightMotor->setSpeed(turnspeed);
-          while(RLF_data==0){
+          while(R1LF_data==0){
             LFDataRead();
           }
       } 
       // to fill in
-      if IntersectionDetection(){
-          pass;
-      }
+      //if (IntersectionDetection()){
+      //    return;
+      //}
       // or Turn_delay
   
       LeftMotor->run(FORWARD);
@@ -152,11 +151,9 @@ void MovementControl::TURN() // 90 degree turn
 
 void MovementControl::MOVE()
 {
-
-  PID = PID();
   
-  speedL = ref_speed + PID;
-  speedR = ref_speed - PID;
+  speedL = ref_speed + PID_;
+  speedR = ref_speed - PID_;
   
   if (speedL > maxspeed) {
     speedL = maxspeed;
@@ -207,9 +204,15 @@ void setup()
   RightMotor->run(BACKWARD);
 
   // initialize the setup 
+  
+  
+}
+
+void loop() 
+{
   MovementControl MC;
   
-  MC.L2LF_anode = 3
+  MC.L2LF_anode = 3;
   MC.L1LF_anode = 4;
   MC.R1LF_anode = 5;
   MC.R2LF_anode = 6;
@@ -224,7 +227,7 @@ void setup()
   digitalWrite(MC.R1LF_anode,HIGH);
   digitalWrite(MC.R2LF_anode,HIGH);
 
-  MC.L2LF_collector = 7
+  MC.L2LF_collector = 7;
   MC.L1LF_collector = 8;
   MC.R1LF_collector = 9;
   MC.R2LF_collector = 10;
@@ -233,11 +236,6 @@ void setup()
   pinMode(MC.L1LF_collector,INPUT);
   pinMode(MC.R1LF_collector,INPUT);
   pinMode(MC.R2LF_collector,INPUT);
-  
-}
 
-void loop() 
-{
   MC.MOVE();
 }
-
