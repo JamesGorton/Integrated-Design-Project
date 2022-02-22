@@ -49,7 +49,7 @@ Class LFDetection
 
 void LFDetection::PID(ref, L1LF_data, R1LF_data, kp, ki, kd)
 {
-    P = ref - real;
+    P = ref - L1LF_data;
     PID = P;
     /*
     I = pre_I + P * iter_time;
@@ -64,8 +64,8 @@ void LFDetection::PID(ref, L1LF_data, R1LF_data, kp, ki, kd)
 
 void LFDetection::LFDataRead()
 {
-    LLF_data = digitalRead(LLF_collector);
-    RLF_data = digitalRead(RLF_collector);
+    LLF_data = analogueRead(LLF_collector);
+    RLF_data = analogueRead(RLF_collector);
 }
 
 // 90 degree turn detection
@@ -99,13 +99,7 @@ Class MovementControl: public: LFDetection
       void STOP (void);
 }
 
-void MovementControl::SETSPEED()
-{
-
-
-
-}
-void MovementControl::TURN()
+void MovementControl::TURN() // 90 degree turn
 {
   if (Turn==0){
       pass;
@@ -136,6 +130,7 @@ void MovementControl::TURN()
       if IntersectionDetection(){
           pass;
       }
+      // or Turn_delay
   
       LeftMotor->run(FORWARD);
       LeftMotor->setSpeed(255);
@@ -224,44 +219,7 @@ void setup()
 
 void loop() 
 {
+  Serial.print("STARTO! ");
   MC.MOVE();
 }
 
-----------------------------
-
-void setup() {
-  //Motor Setup
- 
-}
-void loop() {
- int i;
- digitalWrite(LED_BUILTIN, HIGH);
- delay(10);
- digitalWrite(LED_BUILTIN, LOW);
- Serial.print("tick ");
- LeftMotor->run(FORWARD);
- LeftMotor->setSpeed(255);
- RightMotor->run(BACKWARD);
- RightMotor->setSpeed(255);
- 
- delay(2000);
- //myMotor->run(RELEASE);
- //delay(2000);
-  digitalWrite(LED_BUILTIN, HIGH);
- delay(10);
- digitalWrite(LED_BUILTIN, LOW);
- LeftMotor->setSpeed(0);
- RightMotor->setSpeed(0);
- delay(2000);
- /*
- for (i=0; i<255; i++) {
-   myMotor->setSpeed(i);  
-   delay(1);
- }
- delay(1000);
- for (i=255; i!=0; i--) {
-   myMotor->setSpeed(i);  
-   delay(1);
- }
- */
-}
