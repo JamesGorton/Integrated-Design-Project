@@ -29,17 +29,17 @@ Class LFDetection
       int Turn = 0;
       
       
-      float PID;
+      float PID; // PID control feedback
       float P, I, D;
       float kp = 1;
       float ki = 0;
       float kd = 0;
       int ref; // reference position light intensity.
       
-      void LFDataRead(void);
-      void TurnDetection(void);
-      void IntersectionDetection(void);
-      void PID(void);
+      void LFDataRead(void); // read data from our L1 & R1 LFs
+      void TurnDetection(void); 
+      void IntersectionDetection(void); 
+      void PID(void); // PID control for straight line movement
       
   private:
       // unsigned long current_time;      
@@ -82,21 +82,20 @@ void LFDetection::IntersectionDetection();
 Class MovementControl: public: LFDetection
 {
   public:
-      int motL; // motor output
-      int motR;
-           
-      int speedL;
-      int speedR;
-      int maxspeed;
-      int ref_speed; // forward speed.
-      int turnspeed;
+            
+      int maxspeed = 255;
+      int ref_speed = 150; // forward speed
+      int turnspeed = 50;
       
-      int delay_time;
+      int delay_time = 200;
       
-      void SETSPEED(void);
       void TURN (void);
       void MOVE (void);
       void STOP (void);
+      
+  private:
+      int speedL; 
+      int speedR;
 }
 
 void MovementControl::TURN() // 90 degree turn
@@ -186,40 +185,49 @@ void MovementControl::STOP()
 void setup()
 {
   Serial.begin(9600);
-  Serial.println("Adafruit Motorshield v2 - DC Motor test!");
+  Serial.println("STARTO!");
   AFMS.begin();  // create with the default frequency 1.6KHz
   LeftMotor->setSpeed(150);
   LeftMotor->run(FORWARD);
   LeftMotor->run(RELEASE);
   LeftMotor->run(BACKWARD);
+  RightMotor->setSpeed(150);
+  RightMotor->run(FORWARD);
+  RightMotor->run(RELEASE);
+  RightMotor->run(BACKWARD);
 
-  pinMode(LED_BUILTIN, OUTPUT);
+  // initialize the setup 
   MovementControl MC;
   
-  MC.motL = 1;
-  MC.motR = 2;
-  pinMode(MC.motL,OUTPUT);
-  pinMode(MC.motR,OUTPUT);
-  
-  MC.LLF_anode = 3;
-  MC.RLF_anode = 4;
-  pinMode(MC.LLF_anode,OUTPUT);
-  pinMode(MC.RLF_anode,OUTPUT);
-  digitalWrite(MC.LLF_anode,HIGH);
-  digitalWrite(MC.RLF_anode,HIGH);
+  MC.L2LF_anode = 3
+  MC.L1LF_anode = 4;
+  MC.R1LF_anode = 5;
+  MC.R2LF_anode = 6;
 
-  MC.LLF_collector = 5;
-  MC.RLF_collector = 6;
-  pinMode(MC.LLF_collector,INPUT);
-  pinMode(MC.RLF_collector,INPUT);
+  pinMode(MC.L2LF_anode,OUTPUT);
+  pinMode(MC.L1LF_anode,OUTPUT);
+  pinMode(MC.R1LF_anode,OUTPUT);
+  pinMode(MC.R2LF_anode,OUTPUT);
   
-  MC.turn_delay = 1000;
-   
+  digitalWrite(MC.L2LF_anode,HIGH);
+  digitalWrite(MC.L1LF_anode,HIGH);
+  digitalWrite(MC.R1LF_anode,HIGH);
+  digitalWrite(MC.R2LF_anode,HIGH);
+
+  MC.L2LF_collector = 7
+  MC.L1LF_collector = 8;
+  MC.R1LF_collector = 9;
+  MC.R2LF_collector = 10;
+  
+  pinMode(MC.L2LF_collector,INPUT);
+  pinMode(MC.L1LF_collector,INPUT);
+  pinMode(MC.R1LF_collector,INPUT);
+  pinMode(MC.R2LF_collector,INPUT);
+  
 }
 
 void loop() 
 {
-  Serial.print("STARTO! ");
   MC.MOVE();
 }
 
