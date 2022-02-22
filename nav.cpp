@@ -29,13 +29,13 @@ Class LFDetection
       
       int Turn = 0;
       
-      
+      int delay_time = 200;
       float PID; // PID control feedback
       float P, I, D;
       float kp = 1;
       float ki = 0;
       float kd = 0;
-      int ref; // reference position light intensity.
+      int ref = 0; // reference position light intensity.
       
       void LFDataRead(void); // read data from our L1 & R1 LFs
       void TurnDetection(void); 
@@ -43,17 +43,27 @@ Class LFDetection
       void PID(void); // PID control for straight line movement
       
   private:
-      // unsigned long current_time;      
-      // int pre_I, pre_P;
-      // int prev_time;
+           
+      float pre_I = 0;
+      // float pre_P;
+      unsigned long current_time; 
+      unsigned long prev_time;
 }
 
 void LFDetection::PID(ref, L1LF_data, R1LF_data, kp, ki, kd)
-{
+{ 
+
+    current_time = millis();
+    Serial.println("prev_time = " + String(prev_time));
+    Serial.println("current_time = " + String(current_time));
+    Serial.println("real_delay = " + String(current_time - prev_time));
     P = ref - L1LF_data;
-    PID = P;
+    I = pre_I + P * (current_time - prev_time);
+    PID = P*kp + I*ki;
+    pre_I = I;
+    prev_time = current_time;
+  
     /*
-    I = pre_I + P * iter_time;
     D = (pre_P - P) / iter_time;
     current_time = millis();
     prev_time = current_time;
@@ -88,7 +98,6 @@ Class MovementControl: public: LFDetection
       int ref_speed = 150; // forward speed
       int turnspeed = 50;
       
-      int delay_time = 200;
       
       void TURN (void);
       void MOVE (void);
