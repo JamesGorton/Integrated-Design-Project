@@ -10,3 +10,9 @@ Packages will be randomly positioned within a box, they must be sorted by colour
 target areas.
 
 ![image](https://user-images.githubusercontent.com/94389344/155006604-c28d0354-6b6b-496e-a3ca-8a9cd7bffe59.png)
+
+
+
+02.21 updated: Basic algorithms for line following (basic detection, basic movement control)
+02.22 updated: add PID control algorithm, debug
+02.23 updated: add intersection detection algorithm
