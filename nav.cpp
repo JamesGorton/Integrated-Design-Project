@@ -1,6 +1,8 @@
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
 #include "utility/Adafruit_MS_PWMServoDriver.h"
+#include <ArduinoQueue.h>
+
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 
 // the motor pin 1234?
@@ -24,8 +26,7 @@ class LFDetection
       int L1LF_data; // LF data: 1 for black, 0 for white.
       int R1LF_data;
       int R2LF_data;
-      
-      
+  
       int Turn = 0;
       
       int delay_time = 200;
@@ -42,6 +43,17 @@ class LFDetection
       void PID(void); // PID control for straight line movement
       
   private:
+  
+      int intersection_counter;
+      int white_counter;
+      ArduinoQueue<int> L2Queue(100);
+      ArduinoQueue<int> R2Queue(100);
+  
+      for (int i=0;i<100;i++)
+      {
+        L2Queue.enqueue(0);
+        R2Queue.enqueue(0);
+      }
            
       float pre_I = 0;
       // float pre_P;
@@ -79,6 +91,30 @@ void LFDetection::LFDataRead()
 }
 
 // 90 degree turn detection
+
+void LFDetection::EdgeDetection()
+{
+    int Ldeq;
+    int Rdeq;
+    Ldeq = L2Queue.dequeue();
+    Rdeq = R2Queue.dequeue();
+    L2Queue.enqueue(L2LF_data);
+    R2Queue.enqueue(L2LF_data);
+    
+    if (L2LF_data == 1){
+    white_counter++;
+    }
+    if (Ldeq == 1){
+    white_counter--;
+    }
+    if (R2LF_data == 1){
+    white_counter++;
+    }
+    if (Rdeq == 1){
+    white_counter--;
+    }
+}
+
 void LFDetection::TurnDetection()
 {
     return;
@@ -86,7 +122,25 @@ void LFDetection::TurnDetection()
 
 void LFDetection::IntersectionDetection()
 {
-    return;
+    
+    if white_counter == {
+    intersection_counter++;
+    }
+  
+    //reset L2R2LF counter
+    white_counter = 0;
+    for (int i=0;i<100;i++)
+      {
+        L2Queue.dequeue();
+        R2Queue.dequeue();
+    }
+    for (int i=0;i<100;i++)
+      {
+        L2Queue.enqueue(0);
+        R2Queue.enqueue(0);
+    }
+  
+  
 }
 
 class MovementControl: public LFDetection
