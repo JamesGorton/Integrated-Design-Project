@@ -13,6 +13,6 @@ target areas.
 
 
 
-*02.23 updated: add intersection detection algorithm<br>
-*02.22 updated: add PID control algorithm, debug<br>
-*02.21 updated: Basic algorithms for line following (basic detection, basic movement control)<br>
+*02.23 updated: add intersection detection algorithm*<br>
+*02.22 updated: add PID control algorithm, debug*<br>
+*02.21 updated: Basic algorithms for line following (basic detection, basic movement control)*<br>
