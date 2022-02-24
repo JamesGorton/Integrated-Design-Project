@@ -11,15 +11,17 @@ Adafruit_DCMotor *RightMotor = AFMS.getMotor(1);
 
 class LFDetection
 {
+  ArduinoQueue<int> L2Queue = ArduinoQueue<int>(100);
+  ArduinoQueue<int> R2Queue = ArduinoQueue<int>(100);
   public:
       int L2LF_anode; // L2-L1-R1-R2
-      int L1LF_anode; // LF output for High Voltage
-      int R1LF_anode;
+      int L1LF_anode = 10; // LF output for High Voltage
+      int R1LF_anode = 11;
       int R2LF_anode;
       
       int L2LF_collector;
-      int L1LF_collector; // LF input for LF_data. 2 LF in black area.
-      int R1LF_collector;
+      int L1LF_collector = 8; // LF input for LF_data. 2 LF in black area.
+      int R1LF_collector = 9;
       int R2LF_collector;
       
       int L2LF_data;
@@ -41,33 +43,38 @@ class LFDetection
       void TurnDetection(void); 
       void IntersectionDetection(void); 
       void PID(void); // PID control for straight line movement
-      
+      void Setup(void);
+      void EdgeDetection(void);
   private:
-  
+      float pre_I = 0;
+      // float pre_P;
+      unsigned long current_time; 
+      unsigned long prev_time;
       int intersection_counter;
       int white_counter;
-      ArduinoQueue<int> L2Queue(100);
-      ArduinoQueue<int> R2Queue(100);
-  
-      for (int i=0;i<100;i++)
+      
+      //ArduinoQueue<int> intQueue(100);
+      
+      // ArduinoQueue<int> intQueue(100);
+};
+
+void LFDetection::Setup(){
+        for (int i=0;i<100;i++)
       {
         L2Queue.enqueue(0);
         R2Queue.enqueue(0);
       }
            
-      float pre_I = 0;
-      // float pre_P;
-      unsigned long current_time; 
-      unsigned long prev_time;
-};
+
+}
 
 void LFDetection::PID()
 { 
 
-    current_time = millis();
-    Serial.println("prev_time = " + String(prev_time));
-    Serial.println("current_time = " + String(current_time));
-    Serial.println("real_delay = " + String(current_time - prev_time));
+    int current_time = millis();
+    //Serial.println("prev_time = " + String(prev_time));
+    //Serial.println("current_time = " + String(current_time));
+    //Serial.println("real_delay = " + String(current_time - prev_time));
     P = ref - L1LF_data;
     I = pre_I + P * (current_time - prev_time);
     PID_ = P*kp + I*ki;
@@ -86,8 +93,9 @@ void LFDetection::PID()
 
 void LFDetection::LFDataRead()
 {
-    L1LF_data = analogRead(L1LF_collector);
-    R1LF_data = analogRead(R1LF_collector);
+    Serial.println(000);
+    L1LF_data = digitalRead(L1LF_collector);
+    R1LF_data = digitalRead(R1LF_collector);
 }
 
 // 90 degree turn detection
@@ -99,7 +107,7 @@ void LFDetection::EdgeDetection()
     Ldeq = L2Queue.dequeue();
     Rdeq = R2Queue.dequeue();
     L2Queue.enqueue(L2LF_data);
-    R2Queue.enqueue(L2LF_data);
+    R2Queue.enqueue(R2LF_data);
     
     if (L2LF_data == 1){
     white_counter++;
@@ -123,7 +131,7 @@ void LFDetection::TurnDetection()
 void LFDetection::IntersectionDetection()
 {
     
-    if white_counter == {
+    if (white_counter == 50) {
     intersection_counter++;
     }
   
@@ -206,8 +214,8 @@ void MovementControl::TURN() // 90 degree turn
 void MovementControl::MOVE()
 {
   
-  speedL = ref_speed + PID_;
-  speedR = ref_speed - PID_;
+  speedL = 0; //ref_speed + PID_;
+  speedR = 0; //ref_speed - PID_;
   
   if (speedL > maxspeed) {
     speedL = maxspeed;
@@ -229,9 +237,11 @@ void MovementControl::MOVE()
   while(1){
     LFDataRead();
     PID();
-    TurnDetection();
-    TURN();
-    delay(delay_time);
+    Serial.println("Sensor 1: " + String(L1LF_data));
+    Serial.println("Sensor 2: " + String(L2LF_data));
+    //TurnDetection();
+    //TURN();
+    delay(200);
   }
 }
 
@@ -246,7 +256,7 @@ void MovementControl::STOP()
 void setup()
 {
   Serial.begin(9600);
-  Serial.println("STARTO!");
+  Serial.println("START!");
   AFMS.begin();  // create with the default frequency 1.6KHz
   LeftMotor->setSpeed(150);
   LeftMotor->run(FORWARD);
