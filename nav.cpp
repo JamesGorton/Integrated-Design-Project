@@ -9,10 +9,12 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 Adafruit_DCMotor *LeftMotor = AFMS.getMotor(2);
 Adafruit_DCMotor *RightMotor = AFMS.getMotor(1);
 
+ArduinoQueue<int> L2Queue = ArduinoQueue<int>(100);
+ArduinoQueue<int> R2Queue = ArduinoQueue<int>(100);
+
 class LFDetection
 {
-  ArduinoQueue<int> L2Queue = ArduinoQueue<int>(100);
-  ArduinoQueue<int> R2Queue = ArduinoQueue<int>(100);
+  
   public:
       int L2LF_anode; // L2-L1-R1-R2
       int L1LF_anode = 10; // LF output for High Voltage
@@ -30,12 +32,13 @@ class LFDetection
       int R2LF_data;
   
       int Turn = 0;
+      int detection_threshold = 100; // number of 1s in queue
       
-      int delay_time = 200;
+      int delay_time = 500;
       float PID_; // PID control feedback
       float P, I, D;
-      float kp = 1;
-      float ki = 0;
+      float kp = 20;
+      float ki = 3;
       float kd = 0;
       int ref = 0; // reference position light intensity.
       
@@ -43,8 +46,8 @@ class LFDetection
       void TurnDetection(void); 
       void IntersectionDetection(void); 
       void PID(void); // PID control for straight line movement
-      void Setup(void);
       void EdgeDetection(void);
+  
   private:
       float pre_I = 0;
       // float pre_P;
@@ -53,20 +56,8 @@ class LFDetection
       int intersection_counter;
       int white_counter;
       
-      //ArduinoQueue<int> intQueue(100);
-      
-      // ArduinoQueue<int> intQueue(100);
 };
 
-void LFDetection::Setup(){
-        for (int i=0;i<100;i++)
-      {
-        L2Queue.enqueue(0);
-        R2Queue.enqueue(0);
-      }
-           
-
-}
 
 void LFDetection::PID()
 { 
@@ -93,7 +84,7 @@ void LFDetection::PID()
 
 void LFDetection::LFDataRead()
 {
-    Serial.println(000);
+    Serial.println("Reading...");
     L1LF_data = digitalRead(L1LF_collector);
     R1LF_data = digitalRead(R1LF_collector);
 }
@@ -131,7 +122,7 @@ void LFDetection::TurnDetection()
 void LFDetection::IntersectionDetection()
 {
     
-    if (white_counter == 50) {
+    if (white_counter == detection_threshold) {
     intersection_counter++;
     }
   
@@ -150,6 +141,11 @@ void LFDetection::IntersectionDetection()
   
   
 }
+
+
+
+
+// ******************************************
 
 class MovementControl: public LFDetection
 {
@@ -182,7 +178,7 @@ void MovementControl::TURN() // 90 degree turn
           LeftMotor->setSpeed(turnspeed);
           RightMotor->run(FORWARD);
           RightMotor->setSpeed(turnspeed);
-        
+          delay(delay_time);
           while(L1LF_data==0){
             LFDataRead();
           }
@@ -192,6 +188,7 @@ void MovementControl::TURN() // 90 degree turn
           LeftMotor->setSpeed(turnspeed);
           RightMotor->run(BACKWARD);
           RightMotor->setSpeed(turnspeed);
+          delay(delay_time);
           while(R1LF_data==0){
             LFDataRead();
           }
@@ -237,11 +234,12 @@ void MovementControl::MOVE()
   while(1){
     LFDataRead();
     PID();
+    Serial.println("PID value: "+ String(PID_));
     Serial.println("Sensor 1: " + String(L1LF_data));
     Serial.println("Sensor 2: " + String(L2LF_data));
     //TurnDetection();
-    //TURN();
-    delay(200);
+    TURN();
+    delay(delay_time);
   }
 }
 
@@ -266,6 +264,12 @@ void setup()
   RightMotor->run(FORWARD);
   RightMotor->run(RELEASE);
   RightMotor->run(BACKWARD);
+  
+  for (int i=0;i<100;i++)
+  {
+    L2Queue.enqueue(0);
+    R2Queue.enqueue(0);
+  }
 
   // initialize the setup 
   
