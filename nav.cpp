@@ -48,7 +48,7 @@ class LFDetection
       void PID(void); // PID control for straight line movement
       void EdgeDetection(void);
   
-  private:
+  
       float pre_I = 0;
       // float pre_P;
       unsigned long current_time; 
@@ -59,28 +59,6 @@ class LFDetection
 };
 
 
-void LFDetection::PID()
-{ 
-
-    int current_time = millis();
-    //Serial.println("prev_time = " + String(prev_time));
-    //Serial.println("current_time = " + String(current_time));
-    //Serial.println("real_delay = " + String(current_time - prev_time));
-    P = ref - L1LF_data;
-    I = pre_I + P * (current_time - prev_time);
-    PID_ = P*kp + I*ki;
-    pre_I = I;
-    prev_time = current_time;
-  
-    /*
-    D = (pre_P - P) / iter_time;
-    current_time = millis();
-    prev_time = current_time;
-    pre_I = I;
-    pre_P = P;
-    PID = P * kp + I * ki + D * kd;
-    */  
-}
 
 void LFDetection::LFDataRead()
 {
@@ -159,11 +137,55 @@ class MovementControl: public LFDetection
       void TURN (void);
       void MOVE (void);
       void STOP (void);
+      void PID(void);
       
   private:
       int speedL; 
       int speedR;
 };
+
+
+void MovementControl::PID()
+{ 
+
+    int current_time = millis();
+    //Serial.println("prev_time = " + String(prev_time));
+    //Serial.println("current_time = " + String(current_time));
+    //Serial.println("real_delay = " + String(current_time - prev_time));
+    P = L1LF_data - R1LF_data;
+    I = 0; // pre_I + P * 0.001 * (current_time - prev_time);
+    PID_ = P*kp + I*ki;
+    pre_I = I;
+    prev_time = current_time;
+
+  speedL = ref_speed + PID_;
+  speedR = ref_speed - PID_;
+  
+  if (speedL > maxspeed) {
+    speedL = maxspeed;
+  }
+  if (speedR > maxspeed) {
+    speedR = maxspeed;
+  }
+  if (speedL < 0) {
+    speedL = 0;
+  }
+  if (speedR < 0) {
+    speedR = 0;
+  }
+  LeftMotor->run(FORWARD);
+  LeftMotor->setSpeed(speedL);
+  RightMotor->run(FORWARD);
+  RightMotor->setSpeed(speedR);
+    /*
+    D = (pre_P - P) / iter_time;
+    current_time = millis();
+    prev_time = current_time;
+    pre_I = I;
+    pre_P = P;
+    PID = P * kp + I * ki + D * kd;
+    */  
+}
 
 void MovementControl::TURN() // 90 degree turn
 {
@@ -210,33 +232,16 @@ void MovementControl::TURN() // 90 degree turn
 
 void MovementControl::MOVE()
 {
-  
-  speedL = 0; //ref_speed + PID_;
-  speedR = 0; //ref_speed - PID_;
-  
-  if (speedL > maxspeed) {
-    speedL = maxspeed;
-  }
-  if (speedR > maxspeed) {
-    speedR = maxspeed;
-  }
-  if (speedL < 0) {
-    speedL = 0;
-  }
-  if (speedR < 0) {
-    speedR = 0;
-  }
-  LeftMotor->run(FORWARD);
-  LeftMotor->setSpeed(speedL);
-  RightMotor->run(FORWARD);
-  RightMotor->setSpeed(speedR);
+ 
   
   while(1){
     LFDataRead();
     PID();
     Serial.println("PID value: "+ String(PID_));
     Serial.println("Sensor 1: " + String(L1LF_data));
-    Serial.println("Sensor 2: " + String(L2LF_data));
+    Serial.println("Sensor 2: " + String(R1LF_data));
+    Serial.println("Motor speed L: " + String(speedL));
+    Serial.println("Motor speed R: " + String(speedR));
     //TurnDetection();
     TURN();
     delay(delay_time);
