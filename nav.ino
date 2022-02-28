@@ -147,6 +147,8 @@ void LFDetection::IntersectionDetection()
     }
 }
 
+// Distance sensor version
+// Distance sensor at a fixed distance has a variation at 0.2 V variation and the Distance-Voltage diagram is not linear
 void LFDetection::BlockDetection()
 {   
     // execute when starting block detection turn (-T/2 + T, for period T it can turn 180 degree)
