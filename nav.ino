@@ -57,6 +57,14 @@ int Turn = 0;
 int intersection_counter = 0;
 int white_counter = 0;
 
+int D1_inv = 3;
+int D1_ouput = 4;
+int D2_inv = 5;
+int D2_ouput = 6;
+
+float D1_data;
+float D2_data;
+
 ArduinoQueue<int> L2Queue = ArduinoQueue<int>(Intersection_queue_length);
 ArduinoQueue<int> R2Queue = ArduinoQueue<int>(Intersection_queue_length);
 
@@ -67,6 +75,7 @@ public:
     void TurnDetection(void);
     void IntersectionDetection(void);
     void EdgeDetection(void);
+    void BlockDetection(void);
 };
 
 
@@ -136,6 +145,57 @@ void LFDetection::IntersectionDetection()
         L2Queue.enqueue(0);
         R2Queue.enqueue(0);
     }
+}
+
+void LFDetection::BlockDetection()
+{   
+    // execute when starting block detection turn (-T/2 + T, for period T it can turn 180 degree)
+    start_time = millis();
+    Short = 0;
+    Left_edge = 0;
+    Right_edge = 0
+    
+    // time i.e. angle
+    time_in = -1;
+    time_out = -1;
+    time_short = -1;
+        
+    // D1 data reading
+    i = D1_data;
+    diff = i - i_prev;
+    if (diff > diff_threshold){
+        if (time_in == -1){ //initialization value
+            time_in = millis() - start_time;
+            Left_edge = i;
+                
+            //starting detecting Short
+        }
+        else{
+            time_out = millis() - start_time;
+            Right_edge = i_prev;
+        }
+    }
+    
+    if (time_in != -1){
+        if (time_out != -1){
+            pass;
+        }
+        else{
+            if (i<Short){
+                Short = i;
+                time_short = millis() - start_time;
+            }
+        }
+    }
+    
+    i_prev = i;
+    
+    // after turning movement:
+    
+    robot turn - [T - (time_out+time_in)/2]
+    move 
+    
+    
 }
 // ******************************************
 
