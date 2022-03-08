@@ -57,7 +57,9 @@ unsigned long r_intxn_deb_prev = 0; // Last Right intersection debounce start ti
 int l_intxn_deb = 1; // Intersection debounce checker. 1 for debounce finished.
 int r_intxn_deb = 1;
 
-
+// START BUTTON
+const int buttonPin;     // the number of the pushbutton pin
+int buttonState = 0;         // variable for reading the pushbutton status
 
 // TASK MANAGER
 int task = 0;
@@ -897,6 +899,10 @@ void MovementControl::Stop(){
   RightMotor->setSpeed(0);
 }
 
+// constants won't change. They're used here to set pin numbers:
+
+
+
 void setup()
 {
   Serial.begin(9600);
@@ -908,7 +914,11 @@ void setup()
     L2Queue.enqueue(0);
     R2Queue.enqueue(0);
   }
+   
+  pinMode(buttonPin, INPUT);
+  pinMode(ledPin, OUTPUT);
 
+   
   pinMode(LED, OUTPUT);
   pinMode(2, OUTPUT);
   pinMode(3, OUTPUT);
@@ -929,6 +939,16 @@ void setup()
 
 void loop()
 {
+    while(true){
+      buttonState = digitalRead(buttonPin);
+      Serial.println(buttonState);
+      if (buttonState == 1) {
+            break;
+      }
+      delay(100);
+    }
+
+    
     digitalWrite(2, HIGH);
     digitalWrite(3, HIGH);
     if (main_loop_counter % print_freq == 0){Serial.println("Loop: " + String(main_loop_counter) + " ------------------------");}
