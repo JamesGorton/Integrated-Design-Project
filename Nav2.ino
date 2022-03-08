@@ -553,10 +553,11 @@ void MovementControl::HardDelivery(void){
     HardTurn();
     // move and place.
     long second_stretch_start_time = millis();
-
+   
+    LeftMotor->setSpeed(ref_speed);
+    RightMotor->setSpeed(ref_speed);
     while (millis() - second_stretch_start_time < delivery_time){
-        LeftMotor->setSpeed(ref_speed);
-        RightMotor->setSpeed(ref_speed);
+        pass;
     }
     LeftMotor->setSpeed(0);
     RightMotor->setSpeed(0);
@@ -589,11 +590,12 @@ void MovementControl::Approach(void){
         approach_time = 2000;
     }
     long approach_start_time = millis();
-    while (millis() - approach_start_time <= approach_time){
-        LeftMotor->run(FORWARD);
-        RightMotor->run(FORWARD);
-        LeftMotor->setSpeed(ref_speed);
-        RightMotor->setSpeed(ref_speed);
+   
+    LeftMotor->run(FORWARD);
+    RightMotor->run(FORWARD);
+    LeftMotor->setSpeed(ref_speed);
+    RightMotor->setSpeed(ref_speed);
+    while (millis() - approach_start_time <= approach_time){        
         Blink();
     }
     LeftMotor->setSpeed(0);
@@ -605,11 +607,12 @@ void MovementControl::Approach(void){
 
 void MovementControl::Retreat(void){
     long retreat_start_time = millis();
+   
+    LeftMotor->run(BACKWARD);
+    RightMotor->run(BACKWARD);
+    LeftMotor->setSpeed(ref_speed);
+    RightMotor->setSpeed(ref_speed);
     while (millis() - retreat_start_time <= approach_time){
-        LeftMotor->run(BACKWARD);
-        RightMotor->run(BACKWARD);
-        LeftMotor->setSpeed(ref_speed);
-        RightMotor->setSpeed(ref_speed);
         Blink();
     }
     LeftMotor->setSpeed(0);
@@ -733,10 +736,10 @@ void MovementControl::Search(){
     long search_start_time = millis();
 
     LeftMotor->run(BACKWARD);
+    LeftMotor->setSpeed(200);
     while(millis() - search_start_time < 1000 && block_found != 1){
          // BlockDetection(); // No detect when angle increase.
          Blink();
-        LeftMotor->setSpeed(200);
     }
 
     LeftMotor->setSpeed(0);
@@ -746,13 +749,13 @@ void MovementControl::Search(){
         return;
     }
 
-    LeftMotor->run(FORWARD);
-    delay(500);
 
+    delay(500);
+    LeftMotor->run(FORWARD);
+    LeftMotor->setSpeed(200);
     while (millis() - search_start_time < 2500 && block_found != 1){
         BlockDetection();
         Blink();
-        LeftMotor->setSpeed(200);
     }
 
     LeftMotor->setSpeed(0);
@@ -766,10 +769,10 @@ void MovementControl::Search(){
     delay(500);
 
     RightMotor->run(BACKWARD);
+    RightMotor->setSpeed(200);
     while (millis() - search_start_time < 4000 && block_found != 1){
         BlockDetection();
         Blink();
-        RightMotor->setSpeed(200);
     }
 
     LeftMotor->setSpeed(0);
@@ -782,10 +785,10 @@ void MovementControl::Search(){
     
     delay(500);
     RightMotor->run(FORWARD);
+    RightMotor->setSpeed(200);
     while (millis() - search_start_time < 5500 && block_found != 1){
         BlockDetection();
         Blink();
-        RightMotor->setSpeed(200);
     }
 
     LeftMotor->setSpeed(0);
