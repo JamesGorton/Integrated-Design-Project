@@ -469,17 +469,26 @@ void MovementControl::Stray(void){
         Serial.println("STRAYED LEFT!");
         RightMotor->run(BACKWARD);
         RightMotor->setSpeed(ref_speed);
+        while(L1LF_data != 1){
+            L1LF_data = digitalRead(L1LF_receive);
+            R1LF_data = digitalRead(R1LF_receive);
+            L2LF_data = digitalRead(L2LF_receive);
+            R2LF_data = digitalRead(R2LF_receive);
+        }
+        stray_left = 0;
     }
-    while(L1LF_data != 1){
-        LFDataRead();
-    }
+   
     if (stray_left < (-stray_threshold)){
         Serial.println("STRAYED RIGHT!");
         LeftMotor->run(BACKWARD);
         LeftMotor->setSpeed(ref_speed);
-    }
-    while(R1LF_data != 1){
-        LFDataRead();
+        while(R1LF_data != 1){
+            L1LF_data = digitalRead(L1LF_receive);
+            R1LF_data = digitalRead(R1LF_receive);
+            L2LF_data = digitalRead(L2LF_receive);
+            R2LF_data = digitalRead(R2LF_receive);
+        }
+        stray_left = 0;
     }
     LeftMotor -> setSpeed(0);
     RightMotor -> setSpeed(0);
