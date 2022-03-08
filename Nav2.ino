@@ -606,6 +606,8 @@ void MovementControl::Approach(void){
 }
 
 void MovementControl::Retreat(void){
+    // orientation to the block now
+    // need a calibration turn here to be completed
     long retreat_start_time = millis();
    
     LeftMotor->run(BACKWARD);
@@ -805,7 +807,9 @@ void MovementControl::Search(){
     delay(5000);
 
     block_found = 1; // To be deleted.
-
+    
+   
+    // Turn to the orientation of the block
 }
 
 void MovementControl::LineFindTurn(){
