@@ -88,15 +88,13 @@ int journey = 0; // 0 for go to, 1 for return
 */
 
 // Search queues. Search queue detects sudden drop only.
-const int sweep_queue_length = 5; // Distance sensor sweep queue length.
-const int front_queue_length = 5;
-const int back_queue_length = 5;
+const int sweep_queue_length = 8; // Distance sensor sweep queue length.
+const int front_queue_length = 8;
+const int back_queue_length = 8;
 const float dip_threshold = 10;
 float front_avg = 0;
 float back_avg = 0;
-ArduinoQueue<int> Q = ArduinoQueue<int>(sweep_queue_length);
-ArduinoQueue<int> F = ArduinoQueue<int>(front_queue_length);
-ArduinoQueue<int> B = ArduinoQueue<int>(back_queue_length);
+
 float front_front;
 float mid_front;
 float back_front;
@@ -229,6 +227,9 @@ void LFDetection::Color(void){
 void LFDetection::BlockDetection(){
   // Fill three queues
   // F----- Q ---------- B-----
+  ArduinoQueue<int> Q = ArduinoQueue<int>(sweep_queue_length);
+  ArduinoQueue<int> F = ArduinoQueue<int>(front_queue_length);
+  ArduinoQueue<int> B = ArduinoQueue<int>(back_queue_length);
   while (!F.isFull()){
     DSDataRead();
     F.enqueue( DS_data );
@@ -261,7 +262,7 @@ void LFDetection::BlockDetection(){
     // Serial.println("Front Average: " + String(front_avg));
     // Serial.println("Back  Average: " + String(back_avg));
 
-    if (front_avg - back_avg > dip_threshold){
+    if (front_avg - back_avg < dip_threshold){
       block_distance = DS_data;
       Serial.println("Block Found.");
       block_found = 1;
@@ -738,6 +739,9 @@ void MovementControl::Approach(){
         Color();
         return;
     }
+    
+    
+    
     int k = 1000; // to be tuned.
     approach_time = k * (block_distance / ref_speed);
     approach_time = 2000; // for testing, to be deleted.
