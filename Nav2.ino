@@ -2,27 +2,33 @@
 #include <Adafruit_MotorShield.h>
 #include "utility/Adafruit_MS_PWMServoDriver.h"
 #include <ArduinoQueue.h>
-
-#define trigPin 13
-#define echoPin 12
+#include <Servo.h>
 
 // fail safe (0.5s) lag for 180 turn
 // stray protection
 // button for restart
 // targets occupied
 
+const int chassis_low = 20;
+const int chassis_high = 30;
+const int clamp_open = 20;
+const int clamp_closed = 30;
+
+float color_baseline = 0;
+
+int line_find_turn_delay = 0;
+
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 
-#include <Servo.h>
-Servo myservo;  // create servo object to control a servo
-Servo myservo2;
+Servo clamp_servo;  // create servo object to control a servo
+Servo chassis_servo;
 
 // Line deviate failsafe
 int stray_left;
-const int stray_threshold = 20;
+const int stray_threshold = 6;
 
-const int servo1pin = 0;
-const int servo2pin = 0;
+const int servo1pin = 9;
+const int servo2pin ;//= 10;
 
 // Motor shield motor pins.
 Adafruit_DCMotor *LeftMotor = AFMS.getMotor(4);
@@ -30,10 +36,10 @@ Adafruit_DCMotor *RightMotor = AFMS.getMotor(3);
 
 const int LED; // To flash at 2Hz.
 // Line sensor data receive pins.
-const int L2LF_receive = 10;
-const int L1LF_receive = 8;
-const int R1LF_receive = 11;
-const int R2LF_receive = 12;
+const int L2LF_receive = 12;
+const int L1LF_receive = 11;
+const int R1LF_receive = 10;
+const int R2LF_receive = 8;
 
 // Tunable Parameters.
 const long before_search_lf_period = 2000;
@@ -56,10 +62,6 @@ unsigned long l_intxn_deb_prev = 0; // Last Left intersection debounce start tim
 unsigned long r_intxn_deb_prev = 0; // Last Right intersection debounce start time.
 int l_intxn_deb = 1; // Intersection debounce checker. 1 for debounce finished.
 int r_intxn_deb = 1;
-
-// START BUTTON
-const int buttonPin;     // the number of the pushbutton pin
-int buttonState = 0;         // variable for reading the pushbutton status
 
 // TASK MANAGER
 int task = 0;
@@ -153,16 +155,43 @@ public:
     void IntersectionDetection(void); // Count the number of intersections encountered.
     void BlockDetection(void);
     void Color(void);
-    void Ultrasound(void);
-
+    void ColorBaseline(void);
 };
+
+void LFDetection::ColorBaseline(void){
+    int led = 2;
+    int led2 = 3;
+    int counter = 10;
+    for (int i = 0 ; i < counter ; i++){
+        // read the input on analog pin 0:
+        int sensorValue = analogRead(A0);
+        int sensorValue2 = analogRead(A1);
+        // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
+        float voltage = sensorValue * (5.0 / 1023.0);
+        float voltage2 = sensorValue2 * (5.0 / 1023.0);
+        float difference = voltage - voltage2;
+        // print out the value you read:
+        /*
+        Serial.println("Finding baseline difference: -----");
+        Serial.println("V1: " + String(voltage));
+        Serial.println("V2:" + String(voltage2));
+        Serial.println("Difference: " + String(difference));
+        Serial.println("_____________");
+        */
+        color_baseline += difference / counter;
+    }
+    Serial.println("");
+    Serial.println("Color Baseline: " + String(color_baseline));
+
+    delay(2000);
+}
 
 void LFDetection::Color(void){
     int led = 2;
     int led2 = 3;
     // read the input on analog pin 0:
-    int sensorValue = analogRead(A4);
-    int sensorValue2 = analogRead(A5);
+    int sensorValue = analogRead(A0);
+    int sensorValue2 = analogRead(A1);
     // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
     float voltage = sensorValue * (5.0 / 1023.0);
     float voltage2 = sensorValue2 * (5.0 / 1023.0);
@@ -171,22 +200,25 @@ void LFDetection::Color(void){
     Serial.println("V1: " + String(voltage));
     Serial.println("V2:" + String(voltage2));
     Serial.println("difference: " + String(difference));
-
+    /*
     if (difference < 0.5){
       digitalWrite(led, HIGH);
       digitalWrite(led2, HIGH);
       Turn = 1; // Testing, to be deleted.
     }
-
-    else if (difference < 1) {
+    */
+    float color_threshold = 0.4;
+    if (difference - color_baseline < color_threshold) {
       digitalWrite(led, LOW); // turn Green LED on
       digitalWrite(led2, HIGH); // Red LED off
+      Serial.println("Color is BLUE");
       block_color = 0;
       Turn = 1; // left
     }
-    else if (difference > 1){
+    else if (difference - color_baseline > color_threshold){
       digitalWrite(led, HIGH); // Green LED off
       digitalWrite(led2, LOW); // Red LED on
+      Serial.println("Color is RED");
       block_color = 1;
       Turn = 2;
     }
@@ -242,21 +274,25 @@ void LFDetection::LFDataRead()
     R1LF_data = digitalRead(R1LF_receive);
     L2LF_data = digitalRead(L2LF_receive);
     R2LF_data = digitalRead(R2LF_receive);
+    /*
     if (R2LF_data > L2LF_data){
         stray_left++;
     }
     if (R2LF_data < L2LF_data){
         stray_left--;
     }
-    if (R2LF_data = L2LF_data){
+    if (R2LF_data == L2LF_data){
         if (stray_left < 0){stray_left++;}
         if (stray_left > 0){stray_left--;}
     }
-    /*
+     stray_left = 0;
+     */
     if (main_loop_counter % print_freq == 0){
-      Serial.println("Sensor Data 1 2: " + String(L1LF_data) + " " + String(R1LF_data));
+      Serial.println("Sensor Data: " + String(L2LF_data) + " " + String(L1LF_data)+" " + String(R1LF_data) + " " + String(R2LF_data));
+      Serial.println("Stray_left:" + String(stray_left));
     }
-    */
+
+
 }
 
 void LFDetection::DSDataRead()
@@ -276,7 +312,7 @@ void LFDetection::DSDataRead()
     }
 }
 
-void LFDetection::EdgeDetection() // Testing using L1 and R1.
+void LFDetection::EdgeDetection()
 {
     int Ldeq = L2Queue.dequeue();
     int Rdeq = R2Queue.dequeue();
@@ -288,7 +324,6 @@ void LFDetection::EdgeDetection() // Testing using L1 and R1.
     }
     else{
         L2Queue.enqueue(L2LF_data); // to be changed to L2
-
         L2enqueued = L2LF_data;
     }
     if (r_intxn_deb == 0){ // Debounce not finished.
@@ -302,7 +337,7 @@ void LFDetection::EdgeDetection() // Testing using L1 and R1.
 
     if (L2enqueued == 1){
         left_white_counter++;
-        // Serial.println("L1 ENqueued 1");
+         Serial.println("L1 ENqueued 1");
     }
     if (Ldeq == 1){
         left_white_counter--;
@@ -310,7 +345,7 @@ void LFDetection::EdgeDetection() // Testing using L1 and R1.
     }
     if (R2enqueued == 1){
         right_white_counter++;
-        // Serial.println("R1 ENqueued 1");
+         Serial.println("R1 ENqueued 1");
     }
     if (Rdeq == 1){
         right_white_counter--;
@@ -366,34 +401,6 @@ void LFDetection::IntersectionDetection()
     }
 }
 
-void LFDetection::Ultrasound(){
-    long duration, distance;
-    digitalWrite(trigPin, LOW); // Added this line
-    delayMicroseconds(2); // Added this line
-    digitalWrite(trigPin, HIGH);
-    // delayMicroseconds(1000); - Removed this line
-    delayMicroseconds(10); // Added this line
-    digitalWrite(trigPin, LOW);
-    duration = pulseIn(echoPin, HIGH);
-    distance = (duration/2) / 29.1;
-    //if (distance < 4) { // This is where the LED On/Off happens
-    //digitalWrite(led,HIGH); // When the Red condition is met, the Green LED should turn off
-    //digitalWrite(led2,LOW);
-    //}
-    //else {
-    //digitalWrite(led,LOW);
-    //digitalWrite(led2,HIGH);
-    //}
-    //if (distance >= 200 || distance <= 0){
-    //Serial.println(“Out of range”);
-    //}
-    //else {
-    Serial.println(distance);
-    //Serial.println(“ cm”);
-    //}
-    delay(500);
-}
-
 // ******************************************
 
 class ServoMove{
@@ -409,25 +416,40 @@ void ServoMove::foo(){
     int val;    // variable to read the value from the analog pin
     val = analogRead(potpin);            // reads the value of the potentiometer (value between 0 and 1023)
     val = map(val, 0, 1023, 0, 180);     // scale it to use it with the servo (value between 0 and 180)
-    myservo.write(val);                  // sets the servo position according to the scaled value
+    clamp_servo.write(val);                  // sets the servo position according to the scaled value
     delay(15);                           // waits for the servo to get there
 }
 void ServoMove::bar(){
     for (pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
         // in steps of 1 degree
-        myservo.write(pos);              // tell servo to go to position in variable 'pos'
+        clamp_servo.write(pos);              // tell servo to go to position in variable 'pos'
         delay(15);                       // waits 15ms for the servo to reach the position
     }
     for (pos = 180; pos >= 0; pos -= 1) { // goes from 180 degrees to 0 degrees
-        myservo.write(pos);              // tell servo to go to position in variable 'pos'
+        clamp_servo.write(pos);              // tell servo to go to position in variable 'pos'
         delay(15);                       // waits 15ms for the servo to reach the position
     }
 }
 void ServoMove::Pickup(){
+
+    chassis_servo.write(chassis_low);
+    delay(200);
+    for (int i = clamp_open; i < clamp_closed; i++ ){
+        chassis_servo.write(clamp_closed);
+    }
+    delay(200);
+    clamp_servo.write(chassis_high);
+    delay(200);
     block_picked = 1;
     return;
 }
 void ServoMove::Place(){
+    chassis_servo.write(chassis_low);
+    delay(200);
+    clamp_servo.write(clamp_open);
+    delay(200);
+    chassis_servo.write(chassis_high);
+    delay(200);
     block_placed = 1;
     return;
 }
@@ -446,195 +468,19 @@ class MovementControl: public LFDetection, public ServoMove
       void Approach(void);
       void Pickup(void);
       void Retreat(void);
-      void HardTurn(void);
       void LineFindTurn(void);
 
-      void HardDelivery(void);
       void LFDelivery(void);
       void Reset(void);
 
       void Blink(void);
-      void Stop(void);
 
       void Stray(void);
+
+      void HardTurn(void);
+      void Stop(void);
+      void HardDelivery(void);
 };
-
-void MovementControl::Stray(void){
-    if ((stray_left <= stray_threshold) && (stray_left >= (-stray_threshold))){
-        return;
-    }
-    LeftMotor -> setSpeed(0);
-    RightMotor -> setSpeed(0);
-    if (stray_left > stray_threshold){
-        Serial.println("STRAYED LEFT!");
-        RightMotor->run(BACKWARD);
-        RightMotor->setSpeed(ref_speed);
-        while(L1LF_data != 1){
-            L1LF_data = digitalRead(L1LF_receive);
-            R1LF_data = digitalRead(R1LF_receive);
-            L2LF_data = digitalRead(L2LF_receive);
-            R2LF_data = digitalRead(R2LF_receive);
-        }
-        stray_left = 0;
-    }
-   
-    if (stray_left < (-stray_threshold)){
-        Serial.println("STRAYED RIGHT!");
-        LeftMotor->run(BACKWARD);
-        LeftMotor->setSpeed(ref_speed);
-        while(R1LF_data != 1){
-            L1LF_data = digitalRead(L1LF_receive);
-            R1LF_data = digitalRead(R1LF_receive);
-            L2LF_data = digitalRead(L2LF_receive);
-            R2LF_data = digitalRead(R2LF_receive);
-        }
-        stray_left = 0;
-    }
-    LeftMotor -> setSpeed(0);
-    RightMotor -> setSpeed(0);
-    Serial.println("Stray corrected.");
-    delay(500);
-}
-
-void MovementControl::HardTurn(void){
-    if (Turn == 1)  //LEFT
-    {
-        LeftMotor->run(BACKWARD);
-        LeftMotor->setSpeed(turn_speed);
-        RightMotor->run(FORWARD);
-        RightMotor->setSpeed(turn_speed);
-        delay(2000); // turn time
-    }
-    if (Turn == 2) // RIGHT
-    {
-        LeftMotor->run(FORWARD);
-        LeftMotor->setSpeed(turn_speed);
-        RightMotor->run(BACKWARD);
-        RightMotor->setSpeed(turn_speed);
-        delay(2000);
-    }
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-
-}
-
-void MovementControl::LFDelivery(void){
-    long before_delivery_lf_time = millis();
-    int before_delivery_lf_period = 1000; // 1 more second before stop.
-    int delivery_time = 3000;
-    while (millis() - before_delivery_lf_time <= before_delivery_lf_period){
-        LineFollow();
-    }
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-
-    LineFindTurn();
-    int current_left_intxn = left_intxn_counter;
-    int current_right_intxn = right_intxn_counter;
-    while(current_left_intxn == left_intxn_counter && current_right_intxn == right_intxn_counter){
-        LineFollow();
-    }
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-    // minor adjustments
-    Place();
-}
-
-void MovementControl::HardDelivery(void){
-    // This would be much better done with line follower.
-    long before_delivery_lf_time = millis();
-    int before_delivery_lf_period = 1000; // 1 more second before stop.
-    int delivery_time = 3000;
-    while (millis() - before_delivery_lf_time <= before_delivery_lf_period){
-        LineFollow();
-    }
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-    HardTurn();
-    // move and place.
-    long second_stretch_start_time = millis();
-   
-    LeftMotor->setSpeed(ref_speed);
-    RightMotor->setSpeed(ref_speed);
-    while (millis() - second_stretch_start_time < delivery_time){
-        pass;
-    }
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-    Place();
-    block_placed = 1;
-}
-
-void MovementControl::Reset(void){
-    // return move.
-
-    block_found = 0;
-    block_approached = 0;
-    block_picked = 0;
-    retreated_with_block = 0;
-    journey = 0;
-    left_intxn_counter = 1;
-    right_intxn_counter = 1;
-    block_number++;
-
-    Serial.println("Ready for new run.");
-
-}
-
-void MovementControl::Approach(void){
-    
-    int k = 1000; // to be tuned.
-    approach_time = k * (block_distance / ref_speed);
-    approach_time = 2000; // for testing, to be deleted.
-    if (block_number == 1){
-        approach_time = 2000;
-    }
-    long approach_start_time = millis();
-   
-    LeftMotor->run(FORWARD);
-    RightMotor->run(FORWARD);
-    LeftMotor->setSpeed(ref_speed);
-    RightMotor->setSpeed(ref_speed);
-    while (millis() - approach_start_time <= approach_time){        
-        Blink();
-    }
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-    delay(200);
-    Color();
-    block_approached = 1;
-}
-
-void MovementControl::Retreat(void){
-    // orientation to the block now
-    // need a calibration turn here to be completed
-    long retreat_start_time = millis();
-   
-    LeftMotor->run(BACKWARD);
-    RightMotor->run(BACKWARD);
-    LeftMotor->setSpeed(ref_speed);
-    RightMotor->setSpeed(ref_speed);
-    while (millis() - retreat_start_time <= approach_time){
-        Blink();
-    }
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-    retreated_with_block = 1;
-}
-
-void MovementControl::Pickup(void){
-    // Servo move
-    block_picked = 1;
-}
-
-void MovementControl::Blink(void){
-  if (millis() - prev_blink_time > 500){
-    digitalWrite(LED_BUILTIN, HIGH);
-    delay(10);
-    digitalWrite(LED_BUILTIN, LOW);
-    prev_blink_time = millis();
-  }
-}
 
 void MovementControl::FindTask(){
     // LFDataRead();
@@ -704,7 +550,7 @@ void MovementControl::FindTask(){
         }
     }
 
-    if ((left_intxn_counter == 5 || right_intxn_counter == 5)){
+    if ((left_intxn_counter == 4 || right_intxn_counter == 4)){
         task = 7;
         Serial.println("Manuver to target.");
     }
@@ -717,152 +563,17 @@ void MovementControl::FindTask(){
 
 }
 
-void MovementControl::Search(){
-    if (block_number == 1){
-        block_found = 1;
-        Serial.println("First block.");
-        return;
-    }
-    long before_search_lf_time = millis();
-    int before_search_lf_period = 1500;
-    while (millis() - before_search_lf_time < before_search_lf_period){
-        LineFollow();
-    }
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-    delay(500);
-
-    LeftMotor->run(RELEASE);
-    RightMotor->run(RELEASE);
-
-    long search_start_time = millis();
-
-    LeftMotor->run(BACKWARD);
-    LeftMotor->setSpeed(200);
-    while(millis() - search_start_time < 1000 && block_found != 1){
-         // BlockDetection(); // No detect when angle increase.
-         Blink();
-    }
-
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-    if (block_found == 1){ // this should not execute
-        Serial.println("Found at increasing angle, WRONG.");
-        return;
-    }
-
-
-    delay(500);
-    LeftMotor->run(FORWARD);
-    LeftMotor->setSpeed(200);
-    while (millis() - search_start_time < 2500 && block_found != 1){
-        BlockDetection();
-        Blink();
-    }
-
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-
-    if (block_found == 1){
-        Serial.println("Found at left half box.");
-        return;
-    }
-
-    delay(500);
-
-    RightMotor->run(BACKWARD);
-    RightMotor->setSpeed(200);
-    while (millis() - search_start_time < 4000 && block_found != 1){
-        BlockDetection();
-        Blink();
-    }
-
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-    
-    if (block_found == 1){
-        Serial.println("Found at increasing angle, WRONG.");
-        return;
-    }
-    
-    delay(500);
-    RightMotor->run(FORWARD);
-    RightMotor->setSpeed(200);
-    while (millis() - search_start_time < 5500 && block_found != 1){
-        BlockDetection();
-        Blink();
-    }
-
-    LeftMotor->setSpeed(0);
-    RightMotor->setSpeed(0);
-
-    if (block_found == 1){
-        Serial.println("Found at right half box.");
-        return;
-    }
-
-    if (block_found == 0){
-        Serial.println("Didn't find.");
-    }
-    delay(5000);
-
-    block_found = 1; // To be deleted.
-    
-   
-    // Turn to the orientation of the block
-}
-
-void MovementControl::LineFindTurn(){
-  if (Turn == 1)  //LEFT
-  {
-      LeftMotor->run(BACKWARD);
-      LeftMotor->setSpeed(turn_speed);
-      RightMotor->run(FORWARD);
-      RightMotor->setSpeed(turn_speed);
-      delay(500); // 180 turnaround guarantee.
-      while(R1LF_data != 1){
-        LFDataRead();
-      }
-  }
-  if (Turn == 2) // RIGHT
-  {
-          LeftMotor->run(FORWARD);
-          LeftMotor->setSpeed(turn_speed);
-          RightMotor->run(BACKWARD);
-          RightMotor->setSpeed(turn_speed);
-          delay(500); // 180 turnaround guarantee.
-          while(L1LF_data != 1){
-            LFDataRead();
-          }
-  }
-  LeftMotor->setSpeed(0);
-  RightMotor->setSpeed(0);
-
-  if (journey == 1){
-      journey = 0;
-  }
-  else if (journey == 0){
-      journey = 1;
-  }
-  Serial.println("Turn complete. Journey flipped.");
-}
-
-void MovementControl::LineFollow(){
+void MovementControl::DummyMove(){
     LFDataRead();
     EdgeDetection();
     IntersectionDetection();
-    Stray();
-    PID();
-    if (main_loop_counter % print_freq == 0){
-        // Serial.println("Sensor 1 2: " + String(L1LF_data) + " " + String(R1LF_data));
-        // Serial.println("PID value: "+ String(PIDError));
-        Serial.println("Motor speed L R: " + String(speedL) + " "
-         + String(speedR));
-    }
-    // delay(delay_time);
+    LeftMotor->run(FORWARD);
+    LeftMotor->setSpeed(ref_speed);
+    RightMotor->run(FORWARD);
+    RightMotor->setSpeed(ref_speed);
 }
 
-void MovementControl::PID(){ // only a simple binary controller in the end.
+void MovementControl::PID(){
 
     P = (L1LF_data - R1LF_data);
     I = pre_I + P * 0.001 * (current_time - PID_prev_time);
@@ -897,27 +608,391 @@ void MovementControl::PID(){ // only a simple binary controller in the end.
     prev_speedR = speedR;
   }
 }
-
-void MovementControl::DummyMove(){
+void MovementControl::LineFollow(){
     LFDataRead();
     EdgeDetection();
     IntersectionDetection();
-    LeftMotor->run(FORWARD);
-    LeftMotor->setSpeed(ref_speed);
-    RightMotor->run(FORWARD);
-    RightMotor->setSpeed(ref_speed);
+    // Stray();
+    PID();
+    if (main_loop_counter % print_freq == 0){
+        // Serial.println("Sensor 1 2: " + String(L1LF_data) + " " + String(R1LF_data));
+        // Serial.println("PID value: "+ String(PIDError));
+        Serial.println("Motor speed L R: " + String(speedL) + " "
+         + String(speedR));
+    }
+    // delay(delay_time);
 }
 
+void MovementControl::Search(){
+
+    long before_search_lf_time = millis();
+    int before_search_lf_period = 1500;
+    if ( block_number == 1 ){
+        speedL = 0;
+        speedR = 0;
+        LeftMotor->setSpeed(speedL);
+        RightMotor->setSpeed(speedR);
+        prev_speedL = speedL;
+        prev_speedR = speedR;
+        ColorBaseline();
+        Serial.println("First block" + String(before_search_lf_time));
+        while (millis() - before_search_lf_time < 8000){
+            LineFollow();
+        }
+        Serial.println("First block approching" + String(millis()));
+        block_found = 1;
+        return;
+    }
+
+    while (millis() - before_search_lf_time < before_search_lf_period){
+        LineFollow();
+    }
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+    delay(500);
+
+    LeftMotor->run(RELEASE);
+    RightMotor->run(RELEASE);
+
+    long search_start_time = millis();
+
+    LeftMotor->run(BACKWARD);
+    while(millis() - search_start_time < 1000 && block_found != 1){
+        LeftMotor->setSpeed(200);
+    }
+
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+    if (block_found == 1){
+        Serial.println("Found.");
+        return;
+    }
+
+    LeftMotor->run(FORWARD);
+    delay(500);
+
+    while (millis() - search_start_time < 2500 && block_found != 1){
+        BlockDetection();
+        LeftMotor->setSpeed(200);
+    }
+
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+
+    if (block_found == 1){
+        Serial.println("Found.");
+        return;
+    }
+
+    delay(500);
+
+    RightMotor->run(BACKWARD);
+    while (millis() - search_start_time < 4000 && block_found != 1){
+        RightMotor->setSpeed(200);
+    }
+
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+
+
+    if (block_found == 1){
+        Serial.println("Found.");
+        return;
+    }
+
+    delay(500);
+    RightMotor->run(FORWARD);
+    while (millis() - search_start_time < 5500 && block_found != 1){
+        BlockDetection();
+        RightMotor->setSpeed(200);
+    }
+
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+
+    if (block_found == 1){
+        Serial.println("Found.");
+        return;
+    }
+    prev_speedL = 0;
+    prev_speedR = 0;
+
+    if (block_found == 0){
+        Serial.println("Didn't find.");
+    }
+    delay(5000);
+
+    block_found = 1; // To be deleted.
+
+}
+void MovementControl::Approach(){
+    if (block_number == 1){
+        block_approached = 1;
+
+        approach_time = 1500; // for testing, to be deleted.
+        LeftMotor->setSpeed(0);
+        RightMotor->setSpeed(0);
+        prev_speedL = 0;
+        prev_speedR = 0;
+        delay(200);
+        Color();
+        return;
+    }
+    int k = 1000; // to be tuned.
+    approach_time = k * (block_distance / ref_speed);
+    approach_time = 2000; // for testing, to be deleted.
+    Serial.println("Stopping to start approaching");
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+    delay(500);
+    long approach_start_time = millis();
+    LeftMotor->run(FORWARD);
+    RightMotor->run(FORWARD);
+    LeftMotor->setSpeed(ref_speed);
+    RightMotor->setSpeed(ref_speed);
+    while (millis() - approach_start_time <= approach_time){
+        Blink();
+    }
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+    prev_speedL = 0;
+    prev_speedR = 0;
+    delay(200);
+    Color();
+    block_approached = 1;
+    Serial.println("block_approached");
+}
+void MovementControl::Retreat(){
+    long retreat_start_time = millis();
+
+    LeftMotor->run(BACKWARD);
+    RightMotor->run(BACKWARD);
+    LeftMotor->setSpeed(ref_speed);
+    RightMotor->setSpeed(ref_speed);
+
+    while (millis() - retreat_start_time <= approach_time){
+        Blink();
+    }
+
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+    prev_speedL = 0;
+    prev_speedR = 0;
+    retreated_with_block = 1;
+}
+
+void MovementControl::LineFindTurn(){
+  if (Turn == 1)  //LEFT
+  {
+      LeftMotor->run(BACKWARD);
+      LeftMotor->setSpeed(turn_speed);
+      RightMotor->run(FORWARD);
+      RightMotor->setSpeed(turn_speed);
+      delay(line_find_turn_delay); // turnaround guarantee.k
+      LFDataRead();
+      while(R1LF_data != 1){
+        Blink();
+        LFDataRead();
+      }
+      delay(50);
+  }
+  if (Turn == 2) // RIGHT
+  {
+      LeftMotor->run(FORWARD);
+      LeftMotor->setSpeed(turn_speed);
+      RightMotor->run(BACKWARD);
+      RightMotor->setSpeed(turn_speed);
+      delay(line_find_turn_delay); // turnaround guarantee.
+      LFDataRead();
+      while(L1LF_data != 1){
+        Blink();
+        LFDataRead();
+      }
+      delay(50);
+  }
+  LeftMotor->setSpeed(0);
+  RightMotor->setSpeed(0);
+  prev_speedL = 0;
+  prev_speedR = 0;
+  speedL = 0;
+  speedR = 0;
+
+  if (block_placed == 1 && journey == 1){
+      journey = 0;
+  }
+  else if (journey == 0){
+      journey = 1;
+  }
+  Serial.println("Turn complete. Journey flipped.");
+  delay(500); // Sanity pause.
+}
+
+void MovementControl::LFDelivery(){
+    long before_delivery_lf_time = millis();
+    int before_delivery_lf_period = 2000; // 1 more second before stop.
+    int delivery_time = 3000;
+    while (millis() - before_delivery_lf_time <= before_delivery_lf_period){
+        LineFollow();
+    }
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+    prev_speedL = 0;
+    prev_speedR = 0;
+
+    line_find_turn_delay = 500;
+    LineFindTurn();
+
+    int current_left_intxn = left_intxn_counter;
+    int current_right_intxn = right_intxn_counter;
+    while(current_left_intxn == left_intxn_counter && current_right_intxn == right_intxn_counter){
+        LineFollow();
+    }
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+    prev_speedL = 0;
+    prev_speedR = 0;
+
+    // minor adjustments
+    Place();
+}
+void MovementControl::Reset(){
+    long reset_start_time = millis();
+
+    LeftMotor->run(BACKWARD);
+    RightMotor->run(BACKWARD);
+    LeftMotor->setSpeed(ref_speed);
+    RightMotor->setSpeed(ref_speed);
+
+    while(millis() - reset_start_time < 5000){
+        delay(100);
+    }
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+    line_find_turn_delay = 400;
+    LineFindTurn();
+    // return move.
+
+    block_found = 0;
+    block_approached = 0;
+    block_picked = 0;
+    retreated_with_block = 0;
+    journey = 0;
+    left_intxn_counter = 1;
+    right_intxn_counter = 1;
+    color_baseline = 0;
+
+    Serial.println("Ready for new run.");
+    delay(2000);
+
+}
+
+void MovementControl::Stray(){
+    if ((stray_left <= stray_threshold) && (stray_left >= (-stray_threshold))){
+        return;
+    }
+    LeftMotor -> setSpeed(0);
+    RightMotor -> setSpeed(0);
+    if (stray_left > stray_threshold){
+        Serial.println("STRAYED LEFT!");
+        RightMotor->run(BACKWARD);
+        RightMotor->setSpeed(ref_speed);
+        while(L1LF_data != 1){
+            Blink();
+            LFDataRead();
+        }
+        Serial.println("Stray left corrected.");
+        stray_left = 0;
+        LeftMotor -> setSpeed(0);
+        RightMotor -> setSpeed(0);
+        prev_speedL = 0;
+        prev_speedR = 0;
+        delay(500);
+
+        return;
+    }
+    if (stray_left < (-stray_threshold)){
+        Serial.println("STRAYED RIGHT!");
+        LeftMotor->run(BACKWARD);
+        LeftMotor->setSpeed(ref_speed);
+        while(R1LF_data != 1){
+            Blink();
+            LFDataRead();
+        }
+        Serial.println("Stray right corrected.");
+        stray_left = 0;
+        LeftMotor -> setSpeed(0);
+        RightMotor -> setSpeed(0);
+        prev_speedL = 0;
+        prev_speedR = 0;
+        delay(500);
+        return;
+    }
+    delay(500);
+}
+
+void MovementControl::Blink(){
+  if (millis() - prev_blink_time > 500){
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(10);
+    digitalWrite(LED_BUILTIN, LOW);
+    prev_blink_time = millis();
+  }
+}
+
+void MovementControl::HardTurn(){
+    if (Turn == 1)  //LEFT
+    {
+        LeftMotor->run(BACKWARD);
+        LeftMotor->setSpeed(turn_speed);
+        RightMotor->run(FORWARD);
+        RightMotor->setSpeed(turn_speed);
+        delay(2000); // turn time
+    }
+    if (Turn == 2) // RIGHT
+    {
+        LeftMotor->run(FORWARD);
+        LeftMotor->setSpeed(turn_speed);
+        RightMotor->run(BACKWARD);
+        RightMotor->setSpeed(turn_speed);
+        delay(2000);
+    }
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+
+}
+void MovementControl::HardDelivery(){
+    // This would be much better done with line follower.
+    long before_delivery_lf_time = millis();
+    int before_delivery_lf_period = 1000; // 1 more second before stop.
+    int delivery_time = 3000;
+    while (millis() - before_delivery_lf_time <= before_delivery_lf_period){
+        LineFollow();
+    }
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+    prev_speedL = 0;
+    prev_speedR = 0;
+    HardTurn();
+    // move and place.
+    long second_stretch_start_time = millis();
+
+    while (millis() - second_stretch_start_time < delivery_time){
+        LeftMotor->setSpeed(ref_speed);
+        RightMotor->setSpeed(ref_speed);
+    }
+    LeftMotor->setSpeed(0);
+    RightMotor->setSpeed(0);
+    prev_speedL = 0;
+    prev_speedR = 0;
+    Place();
+    block_placed = 1;
+}
 void MovementControl::Stop(){
   LeftMotor->run(FORWARD);
   LeftMotor->setSpeed(0);
   RightMotor->run(FORWARD);
   RightMotor->setSpeed(0);
 }
-
-// constants won't change. They're used here to set pin numbers:
-
-
 
 void setup()
 {
@@ -930,17 +1005,10 @@ void setup()
     L2Queue.enqueue(0);
     R2Queue.enqueue(0);
   }
-   
-  pinMode(buttonPin, INPUT);
-  pinMode(ledPin, OUTPUT);
 
-   
   pinMode(LED, OUTPUT);
   pinMode(2, OUTPUT);
   pinMode(3, OUTPUT);
-
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
 
   pinMode(L2LF_receive,INPUT);
   pinMode(L1LF_receive,INPUT);
@@ -948,35 +1016,27 @@ void setup()
   pinMode(R2LF_receive,INPUT);
   pinMode(DS_receive, INPUT);
 
-  myservo.attach(servo1pin);
-  myservo2.attach(servo2pin);
+  //clamp_servo.attach(servo1pin);
+  //chassis_servo.attach(servo2pin);
 
 }
 
 void loop()
 {
-    while(true){
-      buttonState = digitalRead(buttonPin);
-      Serial.println(buttonState);
-      if (buttonState == 1) {
-            break;
-      }
-      delay(100);
-    }
-
-    
     digitalWrite(2, HIGH);
     digitalWrite(3, HIGH);
     if (main_loop_counter % print_freq == 0){Serial.println("Loop: " + String(main_loop_counter) + " ------------------------");}
 
     MovementControl MC;
     LFDetection LF;
+    ServoMove SM;
 
     current_time = millis();
 
     MC.FindTask();
     MC.Blink();
-
+    //task = 1;
+    
     switch ( task ){
         case 0:
             MC.DummyMove();
@@ -991,17 +1051,18 @@ void loop()
             MC.Approach();
             break;
         case 4:
-            MC.Pickup();
+            SM.Pickup();
             break;
         case 5:
             MC.Retreat();
             break;
         case 6:
+            line_find_turn_delay = 1000;
             MC.LineFindTurn();
             break;
         case 7:
-            MC.HardDelivery();
-            //MC.LFDelivery();
+            //MC.HardDelivery();
+            MC.LFDelivery();
             break;
         case 8:
             MC.Reset();
