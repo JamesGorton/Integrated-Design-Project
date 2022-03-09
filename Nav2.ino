@@ -73,7 +73,7 @@ int block_picked = 0;
 int retreated_with_block = 0;
 int block_placed = 0;
 int block_number = 1;
-
+int search_count = 0;
 int journey = 0; // 0 for go to, 1 for return
 
 /*
@@ -720,12 +720,14 @@ void MovementControl::Search(){
 
     if (block_found == 0){
         Serial.println("Didn't find.");
-    }
-    delay(5000);
-
-    block_found = 1; // To be deleted.
-
+        search_count+=1;
+        delay(1000);
+        if (search_count<2){
+        Search();
+        }  
+    }  
 }
+
 void MovementControl::Approach(){
     if (block_number == 1){
         block_approached = 1;
